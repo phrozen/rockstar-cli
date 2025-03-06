@@ -2,14 +2,13 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/exec"
 	"strconv"
 	"time"
 
-	"github.com/nu7hatch/gouuid"
+	uuid "github.com/nu7hatch/gouuid"
 	"github.com/urfave/cli"
 )
 
@@ -20,7 +19,6 @@ type Repo struct {
 }
 
 func randomName() string {
-	rand.Seed(time.Now().UnixNano())
 	return fmt.Sprintf("%v-%v-%v", adjs[rand.Intn(len(adjs))], nouns[rand.Intn(len(nouns))], repos[rand.Intn(len(repos))])
 }
 
@@ -35,7 +33,7 @@ func newRepo(filename string) Repo {
 }
 
 func (r *Repo) appendCommit(data string, date time.Time) {
-	err := ioutil.WriteFile(r.FilePath, []byte(data), 0644)
+	err := os.WriteFile(r.FilePath, []byte(data), 0644)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -80,6 +78,10 @@ func main() {
 			Value: "main.go",
 			Usage: "output file",
 		},
+		cli.BoolFlag{
+			Name:  "keep, k",
+			Usage: "do not create a new repo",
+		},
 	}
 	app.Action = func(c *cli.Context) {
 		days, _ := strconv.Atoi(c.String("days"))
@@ -87,7 +89,13 @@ func main() {
 			days *= -1
 		}
 
-		repo := newRepo(c.String("filename"))
+		repo := Repo{
+			DirPath:  ".",
+			FilePath: c.String("filename"),
+		}
+		if !c.Bool("keep") {
+			repo = newRepo(c.String("filename"))
+		}
 
 		for i := days; i < 0; i++ {
 			d := time.Now().Add(time.Duration(i*24) * time.Hour)
@@ -97,7 +105,7 @@ func main() {
 			for j := 0; j < rand.Intn(10); j++ {
 				authorDate := time.Date(d.Year(), d.Month(), d.Day(), int(rand.NormFloat64()*3.0+12.0), rand.Intn(59), rand.Intn(59), 0, d.Location())
 				uid, err := uuid.NewV5(uuid.NamespaceURL, []byte(time.Now().Format(time.RFC3339Nano)))
-				commitData := fmt.Sprintf("%s", uid)
+				commitData := uid.String()
 				if err != nil {
 					continue
 				}
